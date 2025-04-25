@@ -11,7 +11,7 @@ from tensorflow.keras.utils import to_categorical
 
 
 #between 101 and 60,000. Note that It will still take ages to run even with few samples, and that the low accuracy is going to make it throw a ton of exceptions which would normally break it. They're being caught because it was common in the first couple epochs, until the model made at least one prediction for each class. But with few samples included, it never reaches that point.
-NUMBER_OF_SAMPLES_TO_USE = 500
+NUMBER_OF_SAMPLES_TO_USE = 10000
 
 cifar100 = tf.keras.datasets.cifar100  
 (x_train, y_train), (x_val, y_val) = cifar100.load_data()
