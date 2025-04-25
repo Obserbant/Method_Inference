@@ -41,6 +41,7 @@ def build_cnn_model(num_class=100):
     model.add(layers.Dropout(0.3))
     model.add(layers.BatchNormalization())
     
+    # Output layer for classification
     model.add(layers.Dense(num_class, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     return model
@@ -114,21 +115,20 @@ def eval_together(model, train_x, train_y, val_x, val_y):#Eval with a single mod
 def test_model(model,attack_dataset):
     try:
         attack_train_x, attack_val_x, attack_train_y, attack_val_y = attack_dataset
-        #xgboost
+        #Get accuracy for xgboost
         attack_model = XGBClassifier(eval_metric='logloss', verbosity=1)
         xgboost_accuracy_seperately = eval_seperately(attack_model, attack_train_x, attack_train_y, attack_val_x, attack_val_y)
         xgboost_accuracy_together = eval_together(attack_model, attack_train_x, attack_train_y, attack_val_x, attack_val_y)
-        #knn
+        #get accuracy using knn
         attack_model = KNeighborsClassifier(n_neighbors=10)
         knn_accuracy_seperately  = eval_seperately(attack_model, attack_train_x, attack_train_y, attack_val_x, attack_val_y)
         knn_accuracy_together = eval_together(attack_model, attack_train_x, attack_train_y, attack_val_x, attack_val_y)
-        #mlp
+        #get accuracy using a cnn
         attack_model = MLPClassifier(hidden_layer_sizes=(200,100,50), max_iter=5,solver='adam',activation='relu',verbose=0, random_state=42)
         cnn_accuracy_seperately  = eval_seperately(attack_model, attack_train_x, attack_train_y, attack_val_x, attack_val_y)
         cnn_accuracy_together = eval_together(attack_model, attack_train_x, attack_train_y, attack_val_x, attack_val_y)
     except Exception as e:
         print(attack_train_x.shape, attack_val_x.shape, attack_train_y.shape, attack_val_y.shape)
-        #Ran into memory issues at some point, this helped solve
         tracemalloc.start()
         snapshot = tracemalloc.take_snapshot()
         top_stats = snapshot.statistics("lineno")
@@ -183,10 +183,11 @@ def test_model_and_save_results(target_model,total_epochs, test_per_x_epochs,dat
             attack_x = np.array(attack_x)
             attack_y = np.array(attack_y)
             #split some for validation
-            attack_dataset = train_test_split(attack_x,attack_y,test_size=1000,random_state=12)
-            xgboost_accuracy_together, knn_accuracy_together, cnn_accuracy_together, xgboost_accuracy_seperately, knn_accuracy_seperately,cnn_accuracy_seperately =  test_model(target_model,attack_dataset)
-            print(xgboost_accuracy_together, xgboost_accuracy_seperately)
-            write_accuracys((i, xgboost_accuracy_together, knn_accuracy_together, cnn_accuracy_together, xgboost_accuracy_seperately, knn_accuracy_seperately,cnn_accuracy_seperately),current_name)
+            try:#Threw this in a try block so you can run it with vew data samples and it wont error out
+                attack_dataset = train_test_split(attack_x,attack_y,test_size=100,random_state=12)
+                xgboost_accuracy_together, knn_accuracy_together, cnn_accuracy_together, xgboost_accuracy_seperately, knn_accuracy_seperately,cnn_accuracy_seperately =  test_model(target_model,attack_dataset)
+                print(xgboost_accuracy_together, xgboost_accuracy_seperately)
+                write_accuracys((i, xgboost_accuracy_together, knn_accuracy_together, cnn_accuracy_together, xgboost_accuracy_seperately, knn_accuracy_seperately,cnn_accuracy_seperately),current_name)
     return target_model
 
 
@@ -228,21 +229,28 @@ model_info_set = [
     [cnn_model,100,1,True,dataset50,"CNN_50percent_data_with_Datagen-100epoch"],
     [cnn_model,100,1,True,dataset75,"CNN_75percent_data_with_Datagen-100epoch"],
     [cnn_model,100,1,True,dataset90,"CNN_90percent_data_with_Datagen-100epoch"],
-    [cnn_model,100,1,False,dataset50,"CNN_50percent_data_with_Datagen-100epoch"],
-    [cnn_model,100,1,False,dataset75,"CNN_75percent_data_with_Datagen-100epoch"],
-    [cnn_model,100,1,False,dataset90,"CNN_90percent_data_with_Datagen-100epoch"],
+    [cnn_model,100,1,False,dataset50,"CNN_50percent_data_without_Datagen-100epoch"],
+    [cnn_model,100,1,False,dataset75,"CNN_75percent_data_without_Datagen-100epoch"],
+    [cnn_model,100,1,False,dataset90,"CNN_90percent_data_without_Datagen-100epoch"],
     [resnet_model,100,1,True,dataset50,"Resnet_50percent_data_with_Datagen-100epoch"],
     [resnet_model,100,1,True,dataset75,"Resnet_75percent_data_with_Datagen-100epoch"],
     [resnet_model,100,1,True,dataset90,"Resnet_90percent_data_with_Datagen-100epoch"],
-    [resnet_model,100,1,False,dataset50,"Resnet_50percent_data_with_Datagen-100epoch"],
-    [resnet_model,100,1,False,dataset75,"Resnet_75percent_data_with_Datagen-100epoch"],
-    [resnet_model,100,1,False,dataset90,"Resnet_90percent_data_with_Datagen-100epoch"],
+    [resnet_model,100,1,False,dataset50,"Resnet_50percent_data_without_Datagen-100epoch"],
+    [resnet_model,100,1,False,dataset75,"Resnet_75percent_data_without_Datagen-100epoch"],
+    [resnet_model,100,1,False,dataset90,"Resnet_90percent_data_without_Datagen-100epoch"],
     ]
 
-#Can't just loop this in the same program, alot of weights are saved in a hidden way and mess it up when looped, even if you resubstatiate the model each time. You have to run it once per instance.
-test_model_and_save_results(*model_info_set[0])
+#Can't just loop this in the same program, alot of weights are saved in a hidden way and mess it up when looped, even if you resubstatiate the model each time
 
+#test_model_and_save_results(*model_info_set[0])
 
+#Update here to make it callable all at once:
+import sys
+if len(sys.argv) > 1:
+    index = int(sys.argv[1])
+    test_model_and_save_results(*model_info_set[index])
+else:
+    print("Edit the code if you want to run some part manually or with specfic parameters.Else, provide a number 1-12 to run that model.")
 
 
 
